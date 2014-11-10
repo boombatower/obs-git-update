@@ -1,0 +1,58 @@
+#!/bin/bash
+
+if [ $# != 3 ]; then
+  echo "Usage: $0 PACKAGE SOURCE_DIR PACKAGING_DIR"
+  echo "  PACKAGE: Name of OBS package (ex openage)"
+  echo "  SOURCE_DIR: Source directory for package (managed by git)"
+  echo "  PACKAGING_DIR: OSC package checkout directory"
+  echo
+  echo "- checkout master branch and pull down latest"
+  echo "- determine HEAD commit hash and \`git describe\`"
+  echo "- update PACKAGE.version and PACKAGE.hash files"
+  echo "- ensure \`osc diff\` is not empty"
+  echo "- update _service to latest tarball"
+  echo "- add changelog entry, display final diff, and commit"
+  exit
+fi
+
+PACKAGE=$1
+SOURCE_DIR=$2
+PACKAGING_DIR=$3
+echo "PACKAGE=$PACKAGE"
+echo "SOURCE_DIR=$SOURCE_DIR"
+echo "PACKAGING_DIR=$PACKAGING_DIR"
+
+cd $SOURCE_DIR
+git checkout master
+git pull origin master
+
+describe=$(git describe --always --tags --long | sed 's/-/./g')
+echo "describe=$describe"
+echo $describe > $PACKAGING_DIR/$PACKAGE.version
+
+hash=$(git rev-parse HEAD)
+echo "hash=$hash"
+echo $hash > $PACKAGING_DIR/$PACKAGE.hash
+
+cd $PACKAGING_DIR
+
+if [ -z "$(osc diff)" ]; then
+  echo "No changes, exiting."
+  exit
+fi
+
+source_url=$(grep 'Source:' $PACKAGE.spec | sed 's/Source: //' | sed 's/%{hash}/'$hash'/')
+echo "source_url=$source_url"
+
+if [ -z "$source_url" ]; then
+  echo "No 'Source' found in $PACKAGE.spec, exiting."
+  exit
+fi
+
+osc rm _service
+osc add $source_url
+
+message="Update to $describe"
+osc vc -m "$message"
+osc diff
+osc commit -m "$message"

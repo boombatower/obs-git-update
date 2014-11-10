@@ -29,7 +29,13 @@ Version:     %(tr -d '\n' < %{SOURCE17})
 Source: https://github.com/SFTtech/openage/archive/%{hash}.tar.gz
 
 # rest of .spec
+
+# If using github or similarly formatted tarballs.
+%prep
+%setup -q -n %{name}-%{hash}
 ```
+
+Full example of [openage.spec](https://build.opensuse.org/package/view_file/home:boombatower:openage/openage/openage.spec).
 
 obs service file
 ----------------
